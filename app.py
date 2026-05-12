@@ -73,7 +73,7 @@ async def process(
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "model": "gemini-2.0-flash", "api_key_set": bool(os.environ.get("GOOGLE_API_KEY"))}
+    return {"status": "ok", "model": "llama-3.3-70b-versatile", "api_key_set": bool(os.environ.get("GROQ_API_KEY"))}
 
 
 static_dir = Path(__file__).parent / "static"

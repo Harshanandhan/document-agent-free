@@ -1,21 +1,15 @@
 """
-Document processor using Google Gemini Flash (free tier).
-Extracts content from PDFs, images, CSV, Excel then sends to Gemini.
+Document processor using Groq (free tier) — Llama 3.3 70B.
+Extracts content from PDFs, CSV, Excel, then sends to Groq.
 """
 
 import os
-import mimetypes
 from pathlib import Path
+from groq import Groq
 
-from google import genai
-from google.genai import types
+client = Groq(api_key=os.environ.get("GROQ_API_KEY", ""))
 
-client = genai.Client(
-    api_key=os.environ.get("GOOGLE_API_KEY", ""),
-    http_options={"api_version": "v1"}
-)
-
-MODEL = "gemini-1.5-flash-latest"
+MODEL = "llama-3.3-70b-versatile"
 
 SYSTEM_PROMPT = """You are an expert document processing assistant. You analyze documents and extract structured information clearly and professionally.
 
@@ -52,7 +46,7 @@ except ImportError:
 
 def extract_pdf(path: Path) -> str:
     if not HAS_PDFPLUMBER:
-        return f"[PDF: {path.name} — install pdfplumber to extract text]"
+        return f"[PDF: {path.name} — pdfplumber not installed]"
     lines = []
     with pdfplumber.open(str(path)) as pdf:
         for i, page in enumerate(pdf.pages):
@@ -68,7 +62,7 @@ def extract_pdf(path: Path) -> str:
 
 def extract_csv_excel(path: Path) -> str:
     if not HAS_PANDAS:
-        return f"[{path.name} — install pandas to extract data]"
+        return f"[{path.name} — pandas not installed]"
     ext = path.suffix.lower()
     if ext == ".csv":
         df = pd.read_csv(str(path))
@@ -84,36 +78,35 @@ def extract_csv_excel(path: Path) -> str:
 
 def process_documents(files: list[Path], task: str) -> str:
     img_exts = {".jpg", ".jpeg", ".png", ".tiff", ".tif", ".bmp", ".webp"}
-    contents = []
+    parts = []
 
     for path in files:
         ext = path.suffix.lower()
-        contents.append(f"\n### Document: {path.name}\n")
+        parts.append(f"\n### Document: {path.name}\n")
 
         if ext in img_exts:
-            raw = path.read_bytes()
-            mime, _ = mimetypes.guess_type(str(path))
-            contents.append(types.Part.from_bytes(data=raw, mime_type=mime or "image/jpeg"))
+            parts.append(f"[Image file: {path.name} — text extraction not available for images. Please upload PDF or CSV instead.]")
 
         elif ext == ".pdf":
-            contents.append(extract_pdf(path))
+            parts.append(extract_pdf(path))
 
         elif ext in {".csv", ".xlsx", ".xls", ".xlsm"}:
-            contents.append(extract_csv_excel(path))
+            parts.append(extract_csv_excel(path))
 
         else:
             try:
-                contents.append(path.read_text(encoding="utf-8", errors="replace")[:4000])
+                parts.append(path.read_text(encoding="utf-8", errors="replace")[:4000])
             except Exception:
-                contents.append(f"[Could not read {path.name}]")
+                parts.append(f"[Could not read {path.name}]")
 
-    contents.append(f"\n---\n**Task:** {task}")
+    full_content = "\n".join(parts) + f"\n\n---\n**Task:** {task}"
 
-    response = client.models.generate_content(
+    response = client.chat.completions.create(
         model=MODEL,
-        contents=contents,
-        config=types.GenerateContentConfig(
-            system_instruction=SYSTEM_PROMPT,
-        )
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": full_content}
+        ],
+        max_tokens=4096,
     )
-    return response.text
+    return response.choices[0].message.content
