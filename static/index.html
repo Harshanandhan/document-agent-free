@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Document Processing Agent</title>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0a0a0f;
+      color: #e8e8f0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 48px 16px;
+    }
+
+    .container { width: 100%; max-width: 820px; }
+
+    header { text-align: center; margin-bottom: 40px; }
+    .badge {
+      display: inline-block;
+      background: linear-gradient(135deg, #1a6b3c, #0d5c31);
+      color: #4ade80;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      padding: 4px 12px;
+      border-radius: 20px;
+      margin-bottom: 14px;
+      border: 1px solid #1f7a45;
+    }
+    header h1 { font-size: 2rem; font-weight: 700; color: #fff; letter-spacing: -0.5px; }
+    header p { margin-top: 10px; color: #555; font-size: 0.9rem; line-height: 1.5; }
+
+    .card {
+      background: #13131a;
+      border: 1px solid #1e1e2a;
+      border-radius: 16px;
+      padding: 28px;
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block; font-size: 0.75rem; color: #666;
+      margin-bottom: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+
+    .drop-zone {
+      border: 2px dashed #1e1e2a;
+      border-radius: 12px;
+      padding: 28px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-bottom: 10px;
+    }
+    .drop-zone:hover, .drop-zone.drag-over {
+      border-color: #4ade80;
+      background: rgba(74,222,128,0.04);
+    }
+    .drop-zone .icon { font-size: 2rem; margin-bottom: 8px; }
+    .drop-zone .main-text { color: #444; font-size: 0.88rem; }
+    .drop-zone .sub-text { color: #333; font-size: 0.78rem; margin-top: 4px; }
+    #file-input { display: none; }
+
+    .file-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 20px; min-height: 0; }
+    .file-item {
+      display: flex; align-items: center; justify-content: space-between;
+      background: #0f0f15; border: 1px solid #1e1e2a;
+      border-radius: 8px; padding: 9px 13px;
+    }
+    .file-item-left { display: flex; align-items: center; gap: 10px; }
+    .file-icon { font-size: 1.1rem; }
+    .file-name { font-size: 0.84rem; color: #ccc; }
+    .file-size { font-size: 0.74rem; color: #444; margin-top: 1px; }
+    .file-remove {
+      background: none; border: none; color: #333; cursor: pointer;
+      font-size: 0.9rem; padding: 2px 6px; border-radius: 4px; transition: color 0.2s, background 0.2s;
+    }
+    .file-remove:hover { color: #ff6b6b; background: rgba(255,107,107,0.1); }
+
+    textarea {
+      width: 100%; background: #0a0a0f; border: 1px solid #1e1e2a;
+      border-radius: 10px; color: #e8e8f0; font-size: 0.92rem;
+      padding: 13px; resize: vertical; min-height: 100px;
+      font-family: inherit; outline: none; transition: border-color 0.2s; line-height: 1.5;
+    }
+    textarea:focus { border-color: #4ade80; }
+    textarea::placeholder { color: #2a2a38; }
+
+    .examples { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }
+    .example-chip {
+      background: #0f0f15; border: 1px solid #1e1e2a;
+      border-radius: 20px; padding: 5px 13px;
+      font-size: 0.74rem; color: #555; cursor: pointer; transition: all 0.2s;
+    }
+    .example-chip:hover { border-color: #4ade80; color: #4ade80; }
+
+    button[type="submit"] {
+      width: 100%; margin-top: 18px; padding: 14px;
+      background: #4ade80; color: #050f09;
+      border: none; border-radius: 10px; font-size: 0.95rem;
+      font-weight: 700; cursor: pointer; transition: background 0.2s; letter-spacing: 0.2px;
+    }
+    button[type="submit"]:hover { background: #38c96a; }
+    button[type="submit"]:disabled { background: #1a2a1f; color: #2d5a3d; cursor: not-allowed; }
+
+    .spinner-wrap { display: none; text-align: center; padding: 36px; }
+    .spinner-wrap.active { display: block; }
+    .spinner {
+      display: inline-block; width: 32px; height: 32px;
+      border: 3px solid #1e1e2a; border-top-color: #4ade80;
+      border-radius: 50%; animation: spin 0.75s linear infinite;
+    }
+    .spinner-wrap p { color: #444; font-size: 0.85rem; margin-top: 12px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .result-card { display: none; background: #13131a; border: 1px solid #1e1e2a; border-radius: 16px; overflow: hidden; }
+    .result-card.visible { display: block; }
+    .result-card.error { border-color: rgba(255,77,77,0.3); }
+
+    .result-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 22px; border-bottom: 1px solid #1e1e2a; background: #0f0f15;
+    }
+    .result-header-left { display: flex; align-items: center; gap: 8px; }
+    .result-dot { width: 7px; height: 7px; background: #4ade80; border-radius: 50%; }
+    .result-header span { font-size: 0.75rem; color: #555; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+    .copy-btn {
+      background: #0f0f15; border: 1px solid #1e1e2a; color: #555;
+      padding: 5px 13px; border-radius: 6px; font-size: 0.74rem;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .copy-btn:hover { color: #4ade80; border-color: #4ade80; }
+
+    .result-body { padding: 26px; }
+
+    .result-body h1 { font-size: 1.15rem; color: #fff; font-weight: 600; border-bottom: 1px solid #1e1e2a; padding-bottom: 10px; margin-bottom: 14px; margin-top: 20px; }
+    .result-body h1:first-child { margin-top: 0; }
+    .result-body h2 { font-size: 0.98rem; color: #4ade80; font-weight: 600; margin: 18px 0 10px; }
+    .result-body h3 { font-size: 0.88rem; color: #888; margin: 14px 0 8px; }
+    .result-body p { color: #aaa; line-height: 1.75; margin-bottom: 10px; font-size: 0.91rem; }
+    .result-body strong { color: #e8e8f0; font-weight: 600; }
+    .result-body ul, .result-body ol { color: #aaa; padding-left: 20px; margin-bottom: 10px; }
+    .result-body li { margin-bottom: 5px; font-size: 0.91rem; line-height: 1.6; }
+
+    .result-body table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 0.87rem; }
+    .result-body th {
+      background: #0f0f15; color: #666; font-weight: 700; text-align: left;
+      padding: 10px 14px; border: 1px solid #1e1e2a; font-size: 0.75rem;
+      text-transform: uppercase; letter-spacing: 0.4px;
+    }
+    .result-body td { padding: 10px 14px; border: 1px solid #1e1e2a; color: #bbb; vertical-align: top; }
+    .result-body tr:nth-child(even) td { background: #0d0d13; }
+    .result-body tr:hover td { background: #141420; }
+
+    .result-body code {
+      background: #0f0f15; color: #4ade80; padding: 2px 7px;
+      border-radius: 4px; font-size: 0.83rem; font-family: "SF Mono","Fira Code",monospace;
+    }
+    .result-body pre { background: #0a0a0f; border: 1px solid #1e1e2a; border-radius: 8px; padding: 16px; overflow-x: auto; margin: 12px 0; }
+    .result-body pre code { background: none; padding: 0; }
+    .result-body blockquote { border-left: 3px solid #4ade80; padding-left: 14px; color: #555; margin: 14px 0; font-style: italic; }
+    .result-body hr { border: none; border-top: 1px solid #1e1e2a; margin: 22px 0; }
+
+    .error-msg { color: #ff9999; font-size: 0.9rem; }
+    footer { margin-top: 48px; color: #1e1e2a; font-size: 0.78rem; text-align: center; line-height: 1.8; }
+    footer a { color: #2a3a2d; text-decoration: none; }
+    footer a:hover { color: #4ade80; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="badge">Free &amp; Open Source</div>
+    <h1>Document Processing Agent</h1>
+    <p>Upload invoices, PDFs, spreadsheets, or scanned images.<br>AI extracts, validates, and structures your data instantly.</p>
+  </header>
+
+  <form id="agent-form">
+    <div class="card">
+      <label>Documents — up to 5 files</label>
+      <div class="drop-zone" id="drop-zone">
+        <div class="icon">📂</div>
+        <p class="main-text">Drop files here or click to browse</p>
+        <p class="sub-text">PDF · Images (JPG, PNG) · CSV · Excel</p>
+        <input type="file" id="file-input" accept=".pdf,.jpg,.jpeg,.png,.tiff,.tif,.bmp,.csv,.xlsx,.xls" multiple />
+      </div>
+      <div class="file-list" id="file-list"></div>
+
+      <label>What do you need?</label>
+      <textarea id="task-input" placeholder="e.g. Extract all invoice data and validate the amounts" required></textarea>
+
+      <div class="examples">
+        <span class="example-chip" data-task="Extract all invoice data from the uploaded files and validate each one">Extract & validate</span>
+        <span class="example-chip" data-task="Summarize the key information from all uploaded documents">Summarize</span>
+        <span class="example-chip" data-task="Read all uploaded images and extract every visible text, amount, and date">Read scanned docs</span>
+        <span class="example-chip" data-task="Extract the data and present it as a structured table">Structured table</span>
+        <span class="example-chip" data-task="Compare the uploaded documents and highlight any differences">Compare docs</span>
+      </div>
+
+      <button type="submit" id="submit-btn">Process Documents</button>
+    </div>
+  </form>
+
+  <div class="spinner-wrap" id="spinner-wrap">
+    <div class="spinner"></div>
+    <p>Analyzing your documents…</p>
+  </div>
+
+  <div class="result-card" id="result-card">
+    <div class="result-header">
+      <div class="result-header-left">
+        <div class="result-dot"></div>
+        <span>Result</span>
+      </div>
+      <button class="copy-btn" id="copy-btn">Copy</button>
+    </div>
+    <div class="result-body" id="result-body"></div>
+  </div>
+
+  <footer>
+    Powered by Google Gemini 2.0 Flash &nbsp;·&nbsp; Built by
+    <a href="https://github.com/Harshanandhan" target="_blank">Harsha Nandhan Reddy</a>
+  </footer>
+</div>
+
+<script>
+  marked.setOptions({ breaks: true, gfm: true });
+
+  const MAX_FILES = 5;
+  const dropZone = document.getElementById("drop-zone");
+  const fileInput = document.getElementById("file-input");
+  const fileList = document.getElementById("file-list");
+  const taskInput = document.getElementById("task-input");
+  const form = document.getElementById("agent-form");
+  const spinnerWrap = document.getElementById("spinner-wrap");
+  const resultCard = document.getElementById("result-card");
+  const resultBody = document.getElementById("result-body");
+  const submitBtn = document.getElementById("submit-btn");
+  const copyBtn = document.getElementById("copy-btn");
+
+  let selectedFiles = [];
+  let lastRawResult = "";
+
+  const icons = { pdf:"📕", jpg:"🖼️", jpeg:"🖼️", png:"🖼️", tiff:"🖼️", tif:"🖼️", bmp:"🖼️", csv:"📊", xlsx:"📗", xls:"📗" };
+  const getIcon = name => icons[name.split(".").pop().toLowerCase()] || "📄";
+  const fmtSize = b => b < 1024 ? b+"B" : b < 1048576 ? (b/1024).toFixed(1)+"KB" : (b/1048576).toFixed(1)+"MB";
+
+  function renderFileList() {
+    fileList.innerHTML = "";
+    selectedFiles.forEach((file, i) => {
+      const el = document.createElement("div");
+      el.className = "file-item";
+      el.innerHTML = `
+        <div class="file-item-left">
+          <span class="file-icon">${getIcon(file.name)}</span>
+          <div>
+            <div class="file-name">${file.name}</div>
+            <div class="file-size">${fmtSize(file.size)}</div>
+          </div>
+        </div>
+        <button type="button" class="file-remove" data-i="${i}">✕</button>`;
+      fileList.appendChild(el);
+    });
+    fileList.querySelectorAll(".file-remove").forEach(btn =>
+      btn.addEventListener("click", () => { selectedFiles.splice(+btn.dataset.i, 1); renderFileList(); })
+    );
+  }
+
+  function addFiles(newFiles) {
+    for (const f of newFiles) {
+      if (selectedFiles.length >= MAX_FILES) break;
+      if (!selectedFiles.find(x => x.name === f.name && x.size === f.size)) selectedFiles.push(f);
+    }
+    renderFileList();
+  }
+
+  dropZone.addEventListener("click", () => fileInput.click());
+  fileInput.addEventListener("change", () => { addFiles(Array.from(fileInput.files)); fileInput.value = ""; });
+  dropZone.addEventListener("dragover", e => { e.preventDefault(); dropZone.classList.add("drag-over"); });
+  dropZone.addEventListener("dragleave", () => dropZone.classList.remove("drag-over"));
+  dropZone.addEventListener("drop", e => { e.preventDefault(); dropZone.classList.remove("drag-over"); addFiles(Array.from(e.dataTransfer.files)); });
+
+  document.querySelectorAll(".example-chip").forEach(c =>
+    c.addEventListener("click", () => { taskInput.value = c.dataset.task; taskInput.focus(); })
+  );
+
+  copyBtn.addEventListener("click", () => {
+    navigator.clipboard.writeText(lastRawResult).then(() => {
+      copyBtn.textContent = "Copied!";
+      setTimeout(() => copyBtn.textContent = "Copy", 2000);
+    });
+  });
+
+  form.addEventListener("submit", async e => {
+    e.preventDefault();
+    const task = taskInput.value.trim();
+    if (!task) return;
+
+    submitBtn.disabled = true;
+    spinnerWrap.classList.add("active");
+    resultCard.classList.remove("visible", "error");
+    resultBody.innerHTML = "";
+
+    const fd = new FormData();
+    fd.append("task", task);
+    selectedFiles.forEach(f => fd.append("files", f));
+
+    try {
+      const res = await fetch("/process", { method: "POST", body: fd });
+      const data = await res.json();
+      lastRawResult = data.result || "";
+      resultCard.classList.add("visible");
+      if (data.status === "ok") {
+        resultBody.innerHTML = marked.parse(lastRawResult);
+      } else {
+        resultCard.classList.add("error");
+        resultBody.innerHTML = `<p class="error-msg">Error: ${lastRawResult}</p>`;
+      }
+    } catch (err) {
+      resultCard.classList.add("visible", "error");
+      resultBody.innerHTML = `<p class="error-msg">Network error: ${err.message}</p>`;
+    } finally {
+      submitBtn.disabled = false;
+      spinnerWrap.classList.remove("active");
+      resultCard.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  });
+</script>
+</body>
+</html>
