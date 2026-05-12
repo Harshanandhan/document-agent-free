@@ -4,13 +4,13 @@ Extracts content from PDFs, images, CSV, Excel then sends to Gemini.
 """
 
 import os
-import base64
 import mimetypes
 from pathlib import Path
 
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 
-genai.configure(api_key=os.environ.get("GOOGLE_API_KEY", ""))
+client = genai.Client(api_key=os.environ.get("GOOGLE_API_KEY", ""))
 
 MODEL = "gemini-1.5-flash"
 
@@ -79,58 +79,38 @@ def extract_csv_excel(path: Path) -> str:
         return "\n\n".join(result)
 
 
-def build_parts(files: list[Path], task: str) -> list:
-    """Build Gemini content parts from files + task."""
-    import google.generativeai.types as genai_types
-
-    parts = []
+def process_documents(files: list[Path], task: str) -> str:
     img_exts = {".jpg", ".jpeg", ".png", ".tiff", ".tif", ".bmp", ".webp"}
+    contents = []
 
     for path in files:
         ext = path.suffix.lower()
-        parts.append(f"\n### Document: {path.name}\n")
+        contents.append(f"\n### Document: {path.name}\n")
 
         if ext in img_exts:
             raw = path.read_bytes()
             mime, _ = mimetypes.guess_type(str(path))
-            parts.append({"mime_type": mime or "image/jpeg", "data": raw})
+            contents.append(types.Part.from_bytes(data=raw, mime_type=mime or "image/jpeg"))
 
         elif ext == ".pdf":
-            text = extract_pdf(path)
-            parts.append(text)
+            contents.append(extract_pdf(path))
 
         elif ext in {".csv", ".xlsx", ".xls", ".xlsm"}:
-            text = extract_csv_excel(path)
-            parts.append(text)
+            contents.append(extract_csv_excel(path))
 
         else:
             try:
-                parts.append(path.read_text(encoding="utf-8", errors="replace")[:4000])
+                contents.append(path.read_text(encoding="utf-8", errors="replace")[:4000])
             except Exception:
-                parts.append(f"[Could not read {path.name}]")
+                contents.append(f"[Could not read {path.name}]")
 
-    parts.append(f"\n---\n**Task:** {task}")
-    return parts
+    contents.append(f"\n---\n**Task:** {task}")
 
-
-def process_documents(files: list[Path], task: str) -> str:
-    model = genai.GenerativeModel(
-        model_name=MODEL,
-        system_instruction=SYSTEM_PROMPT,
+    response = client.models.generate_content(
+        model=MODEL,
+        contents=contents,
+        config=types.GenerateContentConfig(
+            system_instruction=SYSTEM_PROMPT,
+        )
     )
-
-    parts = build_parts(files, task)
-
-    # Convert dicts (images) to Gemini Part objects
-    content = []
-    for part in parts:
-        if isinstance(part, dict):
-            content.append(genai.types.Part.from_data(
-                data=part["data"],
-                mime_type=part["mime_type"]
-            ))
-        else:
-            content.append(str(part))
-
-    response = model.generate_content(content)
     return response.text
