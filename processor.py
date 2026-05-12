@@ -10,9 +10,12 @@ from pathlib import Path
 from google import genai
 from google.genai import types
 
-client = genai.Client(api_key=os.environ.get("GOOGLE_API_KEY", ""))
+client = genai.Client(
+    api_key=os.environ.get("GOOGLE_API_KEY", ""),
+    http_options={"api_version": "v1"}
+)
 
-MODEL = "gemini-1.5-flash"
+MODEL = "gemini-1.5-flash-latest"
 
 SYSTEM_PROMPT = """You are an expert document processing assistant. You analyze documents and extract structured information clearly and professionally.
 
