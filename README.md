@@ -13,7 +13,7 @@ An AI-powered document processing tool built with **Google Gemini 2.0 Flash** (f
 
 ## Tech Stack
 
-- [Google Gemini 2.0 Flash](https://ai.google.dev) — multimodal AI (text + vision), free tier
+- [Google Gemini 1.5 Flash](https://ai.google.dev) — multimodal AI (text + vision), free tier
 - FastAPI — web server
 - pdfplumber — PDF text & table extraction
 - pandas — CSV/Excel processing

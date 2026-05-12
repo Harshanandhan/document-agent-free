@@ -12,7 +12,7 @@ import google.generativeai as genai
 
 genai.configure(api_key=os.environ.get("GOOGLE_API_KEY", ""))
 
-MODEL = "gemini-2.0-flash"
+MODEL = "gemini-1.5-flash"
 
 SYSTEM_PROMPT = """You are an expert document processing assistant. You analyze documents and extract structured information clearly and professionally.
 
