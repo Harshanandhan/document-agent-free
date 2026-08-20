@@ -1,53 +1,38 @@
-# Document Processing Agent — Free & Open Source
+# Documind (free)
 
-An AI-powered document processing tool built with **Google Gemini 2.0 Flash** (free tier). Upload invoices, PDFs, spreadsheets, or scanned images — the AI extracts, validates, and structures your data instantly. No API costs.
+Upload PDFs, CSV, or Excel. The app extracts text/tables, then Groq (Llama 3.3 70B) returns structured markdown — vendor, dates, line items, totals.
 
-## Features
+Live-style deploy: FastAPI + static UI. Images are accepted but **not OCR’d** (upload PDF/CSV instead).
 
-- **Extract** structured data from invoices and bills (vendor, amounts, dates, line items)
-- **Read** PDFs, CSV, Excel, and scanned images (vision)
-- **Validate** invoice data — field checks and amount math
-- **Compare** multiple documents side by side
-- **Up to 5 files** per request
-- **100% free** — powered by Gemini Flash free tier (1,500 requests/day)
+## Stack
 
-## Tech Stack
+- FastAPI + Uvicorn
+- Groq API (`GROQ_API_KEY`), model `llama-3.3-70b-versatile`
+- pdfplumber, pandas, openpyxl, Pillow
 
-- [Google Gemini 1.5 Flash](https://ai.google.dev) — multimodal AI (text + vision), free tier
-- FastAPI — web server
-- pdfplumber — PDF text & table extraction
-- pandas — CSV/Excel processing
-- Pillow — image handling
-
-## Getting Started
+## Run locally
 
 ```bash
 pip install -r requirements.txt
-```
-
-Get a free API key at [aistudio.google.com](https://aistudio.google.com) — no credit card required.
-
-```bash
-export GOOGLE_API_KEY=your-key-here
+set GROQ_API_KEY=your_key
 uvicorn app:app --reload
 ```
 
-Open `http://localhost:8000`
+Open http://localhost:8000
 
-## Deploy on Railway
+On Linux/macOS use `export GROQ_API_KEY=your_key`.
 
-1. Push this repo to GitHub
-2. Connect to [railway.app](https://railway.app)
-3. Add environment variable: `GOOGLE_API_KEY=your-key`
-4. Done — Railway gives you a public URL
+## API
+
+- `GET /` — web UI (`static/index.html`)
+- `POST /process` — form fields `task` + `files`
+- `GET /health` — reports whether `GROQ_API_KEY` is set
+
+## Deploy
+
+`Procfile` + `railway.toml` are set up for Railway. Set `GROQ_API_KEY` in the host’s environment.
 
 ## Author
 
-**Harsha Nandhan Reddy**
-- GitHub: [@Harshanandhan](https://github.com/Harshanandhan)
-- Email: harshanandhan09@gmail.com
-- Python developer · AI/ML Graduate · Blockchain & Web3 · Cybersecurity
-
-## License
-
-MIT
+Harsha Nandhan Reddy Gajulapalli  
+https://github.com/Harshanandhan
